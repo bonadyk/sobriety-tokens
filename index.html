@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Жетони чистоти</title>
+<meta name="description" content="Скляні жетони днів чистоти">
+<meta name="theme-color" content="#07090f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Жетони">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{
+  --bg:#07090f; --panel:rgba(255,255,255,.045); --line:rgba(255,255,255,.09);
+  --text:#eef1f6; --muted:#8b93a3; --danger:#ff5a6e;
+  --s:280px; --t:20px;
+  --c1:#e9ecef; --c2:#9aa3ab; --c3:#f8f9fa; --c4:#5f6870;
+  --tint:200,210,220; --glow:159,179,200; --ink:255,255,255;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none}
+body{min-height:100dvh}
+button{font:inherit;color:inherit;cursor:pointer}
+.app{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 28px)}
+
+/* ambient background */
+.bgfx{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.bgfx i{position:absolute;border-radius:50%;filter:blur(70px);opacity:.35;transition:background 1.2s}
+.bgfx i:nth-child(1){width:70vw;height:70vw;left:-20vw;top:-10vw;background:rgb(var(--glow))}
+.bgfx i:nth-child(2){width:60vw;height:60vw;right:-25vw;top:40vh;background:#3b2a7a;opacity:.28}
+.bgfx i:nth-child(3){width:50vw;height:50vw;left:10vw;bottom:-20vw;background:#0d4d5c;opacity:.25}
+
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.eyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.counter{font-size:44px;font-weight:200;letter-spacing:-.02em;line-height:1.05;margin-top:6px;font-variant-numeric:tabular-nums}
+.counter small{font-size:17px;font-weight:400;color:var(--muted);margin-left:6px;letter-spacing:0}
+.since{font-size:13px;color:var(--muted);text-align:right;line-height:1.4}
+
+/* stage */
+.stage{position:relative;height:calc(var(--s) + 110px);display:grid;place-items:center;margin-top:8px;
+  perspective:1100px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+.stage:active{cursor:grabbing}
+.halo{position:absolute;width:calc(var(--s)*1.15);height:calc(var(--s)*1.15);border-radius:50%;
+  background:radial-gradient(circle at 38% 40%, rgba(var(--glow),.85) 0%, rgba(var(--glow),.25) 35%, transparent 62%),
+             radial-gradient(circle at 66% 64%, rgba(120,90,255,.45) 0%, transparent 45%);
+  filter:blur(18px);transition:background 1s}
+.shadow{position:absolute;bottom:18px;width:calc(var(--s)*.7);height:22px;border-radius:50%;
+  background:radial-gradient(ellipse, rgba(0,0,0,.65), transparent 70%);filter:blur(6px)}
+.hint{position:absolute;bottom:0;font-size:12px;color:var(--muted);letter-spacing:.06em;transition:opacity .6s}
+
+/* 3D coin */
+.coin{position:relative;width:var(--s);height:var(--s);transform-style:preserve-3d;will-change:transform}
+.face{position:absolute;inset:0;border-radius:50%;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden}
+.front{transform:translateZ(calc(var(--t)/2))}
+.back{transform:rotateY(180deg) translateZ(calc(var(--t)/2))}
+.seg{position:absolute;left:50%;top:50%;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+
+/* token face (shared by 3D coin and mini coins) */
+.tok{position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from var(--rr,0deg), var(--c1), var(--c2) 12%, var(--c3) 25%, var(--c4) 38%, var(--c1) 50%, var(--c2) 62%, var(--c3) 75%, var(--c4) 88%, var(--c1));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);
+  -webkit-mask:radial-gradient(closest-side, transparent 82.5%, #000 83.5%);mask:radial-gradient(closest-side, transparent 82.5%, #000 83.5%)}
+.tok::before{content:"";position:absolute;inset:3.2%;border-radius:50%;
+  background:repeating-radial-gradient(circle, rgba(255,255,255,.06) 0 1px, transparent 1px 3px);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}
+.glass{position:absolute;inset:8%;border-radius:50%;overflow:hidden;
+  background:
+    radial-gradient(120% 90% at 28% 18%, rgba(255,255,255,.55) 0%, rgba(255,255,255,.08) 32%, transparent 48%),
+    radial-gradient(circle at 72% 88%, rgba(var(--tint),.5), transparent 55%),
+    radial-gradient(circle at 50% 50%, transparent 55%, rgba(var(--tint),.35) 80%, rgba(255,255,255,.25) 98%),
+    linear-gradient(150deg, rgba(var(--tint),.38), rgba(var(--tint),.06) 50%, rgba(var(--tint),.3));
+  backdrop-filter:blur(2px);
+  box-shadow:
+    inset 0 0 0 1.5px rgba(255,255,255,.55),
+    inset 0 calc(var(--s)*.03) calc(var(--s)*.05) rgba(255,255,255,.18),
+    inset 0 calc(var(--s)*-.05) calc(var(--s)*.1) rgba(0,0,0,.35),
+    0 0 0 2px rgba(0,0,0,.25)}
+.glass.gem{background:
+    radial-gradient(120% 90% at 28% 18%, rgba(255,255,255,.55) 0%, rgba(255,255,255,.06) 30%, transparent 46%),
+    repeating-conic-gradient(from 10deg, rgba(255,255,255,.10) 0 7.5deg, rgba(0,0,0,.14) 7.5deg 15deg),
+    radial-gradient(circle at 50% 55%, rgba(var(--tint),.65), rgba(var(--tint),.95) 75%)}
+.glass.iri .label{color:#fff;text-shadow:0 0 1px rgba(0,0,0,.5),0 1px 2px rgba(40,60,90,.55),0 0 14px rgba(60,80,120,.45)}
+.glass.iri::after{content:"";position:absolute;inset:0;border-radius:50%;mix-blend-mode:overlay;opacity:.45;
+  background:conic-gradient(from var(--rr,0deg),#ff9ad5,#ffe08a,#9dffb0,#8ad8ff,#c79bff,#ff9ad5)}
+.glass .ring{position:absolute;inset:0;width:100%;height:100%}
+.glass .ring text{fill:rgba(var(--ink),.78);font-size:8px;font-weight:600}
+.glass .inner{position:absolute;inset:17%;border-radius:50%;border:1px solid rgba(255,255,255,.25);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 1px 0 rgba(0,0,0,.25)}
+.label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:rgba(var(--ink),.96);text-align:center;
+  text-shadow:0 1px 0 rgba(255,255,255,.35),0 -1px 0 rgba(0,0,0,.35),0 2px 12px rgba(0,0,0,.25)}
+.num{font-size:calc(var(--s)*.27);font-weight:250;line-height:.95;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.num.long{font-size:calc(var(--s)*.2)}
+.unit{font-size:calc(var(--s)*.058);font-weight:600;letter-spacing:.32em;margin-top:calc(var(--s)*.02);padding-left:.32em}
+.tname{font-size:calc(var(--s)*.038);letter-spacing:.28em;margin-top:calc(var(--s)*.035);opacity:.8;padding-left:.28em;text-transform:uppercase}
+.btitle{font-size:calc(var(--s)*.075);font-weight:300;letter-spacing:.3em;padding-left:.3em}
+.bsub{font-size:calc(var(--s)*.042);letter-spacing:.12em;margin-top:calc(var(--s)*.03);opacity:.85}
+.bdate{font-size:calc(var(--s)*.036);margin-top:calc(var(--s)*.04);opacity:.7;letter-spacing:.08em}
+.glare{position:absolute;inset:0;border-radius:50%;pointer-events:none;mix-blend-mode:screen;
+  background:linear-gradient(105deg, transparent 38%, rgba(255,255,255,.08) 44%, rgba(255,255,255,.55) 50%, rgba(255,255,255,.08) 56%, transparent 62%);
+  background-size:300% 100%;background-position:var(--gp,50%) 0}
+.spark{position:absolute;width:10px;height:10px;pointer-events:none;
+  background:radial-gradient(circle,#fff 0 18%,transparent 60%);animation:tw 2.6s infinite ease-in-out}
+.spark::before,.spark::after{content:"";position:absolute;left:50%;top:50%;width:1px;height:22px;background:linear-gradient(transparent,#fff,transparent);transform:translate(-50%,-50%)}
+.spark::after{transform:translate(-50%,-50%) rotate(90deg)}
+@keyframes tw{0%,100%{opacity:0;transform:scale(.3) rotate(0)}50%{opacity:1;transform:scale(1) rotate(45deg)}}
+
+/* cards */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px;margin-top:16px;
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.tierline{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.tiertitle{font-size:22px;font-weight:600}
+.tiersub{color:var(--muted);font-size:14px}
+.pill{font-size:12px;padding:5px 10px;border-radius:99px;background:rgba(var(--glow),.16);color:rgb(var(--glow));white-space:nowrap;border:1px solid rgba(var(--glow),.3)}
+.prog{margin-top:14px}
+.bar{height:8px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+.bar b{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,rgba(var(--glow),.5),rgb(var(--glow)));transition:width 1s}
+.progtxt{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-top:8px}
+h2{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 8px}
+.mini{display:flex;flex-direction:column;align-items:center;gap:8px;background:none;border:0;padding:4px;border-radius:16px}
+.mini .disc{--s:78px;position:relative;width:78px;height:78px;border-radius:50%;
+  box-shadow:0 8px 20px rgba(0,0,0,.45), 0 0 0 0 rgba(255,255,255,0);transition:transform .25s, box-shadow .25s}
+.mini.sel .disc{transform:translateY(-3px) scale(1.06);box-shadow:0 10px 26px rgba(0,0,0,.5),0 0 0 2px rgba(255,255,255,.65)}
+.mini.lock .disc{filter:grayscale(.85) brightness(.45);opacity:.65}
+.mini .disc .lockic{position:absolute;inset:0;display:grid;place-items:center;font-size:20px;filter:grayscale(1)}
+.mini .mn{font-size:13px;font-weight:600}
+.mini .ms{font-size:11px;color:var(--muted);margin-top:-6px;text-align:center}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.stats b{display:block;font-size:22px;font-weight:300;font-variant-numeric:tabular-nums}
+.stats span{font-size:11px;color:var(--muted);letter-spacing:.04em}
+.relapse{display:block;width:100%;margin-top:22px;padding:16px;border-radius:18px;border:1px solid rgba(255,90,110,.45);
+  background:rgba(255,90,110,.08);color:var(--danger);font-weight:600;font-size:16px;letter-spacing:.04em}
+.foot{text-align:center;color:#5a6170;font-size:12px;margin-top:18px;line-height:1.5}
+
+/* modals */
+.modal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:22px;
+  background:rgba(4,6,10,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.modal.on{display:flex;animation:fade .3s}
+@keyframes fade{from{opacity:0}}
+.sheet{width:100%;max-width:400px;background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.14);border-radius:28px;padding:26px 22px;box-shadow:0 30px 80px rgba(0,0,0,.6);text-align:center}
+.sheet h3{margin:0 0 8px;font-size:24px;font-weight:600}
+.sheet p{margin:0 0 18px;color:#aeb5c2;line-height:1.5;font-size:15px}
+.inp{width:100%;font-size:44px;font-weight:200;text-align:center;padding:12px;border-radius:18px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(0,0,0,.25);color:var(--text);outline:none;font-variant-numeric:tabular-nums}
+.inp:focus{border-color:rgba(255,255,255,.45)}
+.btn{display:block;width:100%;padding:16px;border-radius:16px;border:0;font-weight:600;font-size:16px;margin-top:12px;
+  background:linear-gradient(180deg,#f4f6fa,#c9d0da);color:#0b0f17}
+.btn:disabled{opacity:.35}
+.btn.ghost{background:rgba(255,255,255,.06);color:var(--text);border:1px solid rgba(255,255,255,.12)}
+.btn.hold{position:relative;overflow:hidden;background:rgba(255,90,110,.12);color:#ffd5db;border:1px solid rgba(255,90,110,.5);touch-action:none;user-select:none;-webkit-user-select:none}
+.btn.hold i{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(255,90,110,.55)}
+.btn.hold span{position:relative}
+.warn{font-size:13px;color:#e8b86b;margin-top:14px;line-height:1.45}
+.err{font-size:13px;color:var(--danger);min-height:18px;margin-top:8px}
+
+/* celebration */
+.celebrate .stage{height:calc(var(--s) + 40px)}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
+.confetti i{position:absolute;top:-10px;width:6px;height:12px;border-radius:2px;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.2}}
+@media (prefers-reduced-motion: reduce){.spark,.confetti i{animation:none;display:none}}
+</style>
+</head>
+<body>
+<div class="bgfx"><i></i><i></i><i></i></div>
+
+<main class="app" id="app" hidden>
+  <header>
+    <div>
+      <div class="eyebrow">Днів чистоти</div>
+      <div class="counter"><span id="days">0</span><small id="daysWord">днів</small></div>
+    </div>
+    <div class="since" id="since"></div>
+  </header>
+
+  <section class="stage" id="stage" aria-label="Жетон. Проведіть пальцем, щоб покрутити">
+    <div class="halo"></div>
+    <div class="shadow"></div>
+    <div class="coin" id="coin"></div>
+    <div class="hint" id="hint">Крутіть пальцем · 2× дотик — перевернути</div>
+  </section>
+
+  <section class="card">
+    <div class="tierline">
+      <div>
+        <div class="tiertitle" id="tierTitle"></div>
+        <div class="tiersub" id="tierSub"></div>
+      </div>
+      <div class="pill" id="tierPill"></div>
+    </div>
+    <div class="prog" id="prog">
+      <div class="bar"><b id="barFill"></b></div>
+      <div class="progtxt"><span id="progL"></span><span id="progR"></span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Колекція жетонів</h2>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="card">
+    <div class="stats">
+      <div><b id="stBest">0</b><span>найдовша серія</span></div>
+      <div><b id="stEarned">0</b><span>жетонів</span></div>
+      <div><b id="stRel">0</b><span>рецидивів</span></div>
+    </div>
+  </section>
+
+  <button class="relapse" id="relapseBtn">Рецидив</button>
+  <div class="foot">Дані зберігаються лише на цьому пристрої.<br>Працює офлайн — додайте на головний екран.</div>
+</main>
+
+<!-- onboarding -->
+<div class="modal" id="onb">
+  <div class="sheet">
+    <div id="onbStep1">
+      <h3>Скільки днів ви вже чисті?</h3>
+      <p>Вкажіть кількість повних днів. Якщо починаєте сьогодні — введіть 0.</p>
+      <input class="inp" id="onbInput" type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="36500" placeholder="0" autocomplete="off">
+      <div class="err" id="onbErr"></div>
+      <button class="btn" id="onbNext" disabled>Далі</button>
+    </div>
+    <div id="onbStep2" hidden>
+      <h3 id="onbConfirmTitle"></h3>
+      <p id="onbConfirmText"></p>
+      <div class="warn">Після підтвердження змінити кількість днів буде неможливо. Скинути лічильник можна лише кнопкою «Рецидив».</div>
+      <button class="btn" id="onbOk">Підтвердити</button>
+      <button class="btn ghost" id="onbBack">Назад</button>
+    </div>
+  </div>
+</div>
+
+<!-- relapse -->
+<div class="modal" id="rel">
+  <div class="sheet">
+    <div id="relStep1">
+      <h3>Зафіксувати рецидив?</h3>
+      <p id="relText"></p>
+      <button class="btn hold" id="holdBtn"><i id="holdFill"></i><span>Утримуйте, щоб підтвердити</span></button>
+      <button class="btn ghost" id="relCancel">Скасувати</button>
+    </div>
+    <div id="relStep2" hidden>
+      <h3>Ви тут — і це важливо</h3>
+      <p id="relAfter"></p>
+      <button class="btn" id="relDone">Почати новий відлік</button>
+    </div>
+  </div>
+</div>
+
+<!-- new token -->
+<div class="modal celebrate" id="cel">
+  <div class="sheet" style="padding-top:10px">
+    <section class="stage" id="celStage" style="--s:210px;--t:16px"><div class="halo"></div><div class="coin" id="celCoin"></div></section>
+    <h3 id="celTitle"></h3>
+    <p id="celText"></p>
+    <button class="btn" id="celOk">Дякую</button>
+  </div>
+</div>
+<div class="confetti" id="confetti"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- tiers: each next one is rarer and more precious ---------- */
+const T = (d, name, sub, rim, tint, glow, opts={}) => ({d, name, sub, rim, tint, glow, ...opts});
+const STARTER = T(0,'Чисте скло','Шлях до першого жетону',['#eaf2ff','#9fb0c4','#ffffff','#6b7a8c'],'190,210,235','130,160,200');
+const TIERS = [
+  T(30,  'Нікель',        'Перший місяць',     ['#eef1f3','#9aa3ab','#ffffff','#5c656d'], '196,204,212','160,176,192'),
+  T(60,  'Мідь',          'Два місяці',        ['#ffd2b3','#b4602f','#ffe6d4','#6e3014'], '214,128,82', '230,120,70'),
+  T(90,  'Бронза',        'Три місяці',        ['#f3d9a4','#a87428','#fff0cc','#5e3c0e'], '200,150,80', '215,160,80'),
+  T(180, 'Срібло',        'Пів року',          ['#ffffff','#b9c3cd','#f5f8fb','#76838f'], '214,226,240','190,215,255', {spark:2}),
+  T(270, 'Рожеве золото', 'Дев’ять місяців',['#ffe3d8','#d38a78','#fff3ee','#9c5444'], '242,170,152','255,150,130', {spark:2}),
+  T(365, 'Золото',        'Один рік',          ['#fff6c8','#d6a313','#fffbe6','#7d5a04'], '246,198,66', '255,200,60', {spark:3}),
+  T(545, 'Платина',       'Півтора року',      ['#ffffff','#cdd5dd','#eef4fa','#87939f'], '226,236,246','210,235,255',{spark:3}),
+  T(730, 'Сапфір',        'Два роки',          ['#ffffff','#c7d0da','#f2f6fb','#7e8a96'], '22,70,210',  '60,120,255', {gem:1,spark:4}),
+  T(1095,'Смарагд',       'Три роки',          ['#fff7d6','#d9b44a','#fffbea','#86681a'], '8,150,100',  '30,210,140', {gem:1,spark:4}),
+  T(1825,'Рубін',         'П’ять років',  ['#fff7d6','#d9b44a','#fffbea','#86681a'], '196,16,58',  '255,50,90',  {gem:1,spark:5}),
+  T(3650,'Діамант',       'Десять років',      ['#ffffff','#d8e2ec','#ffffff','#9aa6b2'], '235,245,255','230,240,255',{gem:1,iri:1,spark:7}),
+];
+
+/* ---------- storage ---------- */
+const KEY = 'clean-tokens:v1';
+let mem = null;
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return mem; } };
+const save = s => { mem = s; try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+let state = load();
+
+/* ---------- dates ---------- */
+const pad = n => String(n).padStart(2,'0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const utc = d => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+const diffDays = (a, b) => Math.round((utc(b) - utc(a)) / 864e5);
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate()+n); return d; };
+const fmt = d => d.toLocaleDateString('uk-UA', {day:'numeric', month:'long', year:'numeric'});
+const fmtShort = d => `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}`;
+const plural = (n, f) => { const a = Math.abs(n)%100, b = a%10;
+  return (a>10&&a<20) ? f[2] : b===1 ? f[0] : (b>=2&&b<=4) ? f[1] : f[2]; };
+const DW = ['день','дні','днів'];
+const daysNow = () => state ? Math.max(0, diffDays(parse(state.start), new Date())) : 0;
+
+/* ---------- token markup ---------- */
+const $ = id => document.getElementById(id);
+function setVars(el, t){
+  el.style.setProperty('--c1', t.rim[0]); el.style.setProperty('--c2', t.rim[1]);
+  el.style.setProperty('--c3', t.rim[2]); el.style.setProperty('--c4', t.rim[3]);
+  el.style.setProperty('--tint', t.tint); el.style.setProperty('--glow', t.glow);
+}
+const RING = 'ЧИСТОТА · СВОБОДА · СИЛА · ВІРА В СЕБЕ · ЧИСТОТА · СВОБОДА · СИЛА · ВІРА В СЕБЕ · ';
+let uid = 0;
+function faceHTML(t, n, side, small){
+  const id = 'rp' + (++uid);
+  const gcls = 'glass' + (t.gem ? ' gem' : '') + (t.iri ? ' iri' : '');
+  const ring = small ? '' : `<svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+      <defs><path id="${id}" d="M100,100 m-80,0 a80,80 0 1,1 160,0 a80,80 0 1,1 -160,0"/></defs>
+      <text><textPath href="#${id}" startOffset="0" textLength="498" lengthAdjust="spacing">${side==='front'?RING:'КРОК ЗА КРОКОМ · ДЕНЬ ЗА ДНЕМ · КРОК ЗА КРОКОМ · ДЕНЬ ЗА ДНЕМ · '}</textPath></text></svg>`;
+  let label;
+  if (side === 'front') {
+    label = `<div class="num${String(n).length>3?' long':''}">${n}</div>
+             <div class="unit">${plural(n,['ДЕНЬ','ДНІ','ДНІВ'])}</div>
+             ${small ? '' : `<div class="tname">${t.name}</div>`}`;
+  } else {
+    const when = state && t.d ? fmtShort(addDays(state.start, t.d)) : (state ? fmtShort(parse(state.start)) : '');
+    label = `<div class="btitle">ЧИСТОТА</div><div class="bsub">${t.sub}</div>
+             <div class="bdate">${t.d ? 'отримано ' : 'від '}${when}</div>`;
+  }
+  let sparks = '';
+  if (!small && side==='front' && t.spark) {
+    for (let i=0;i<t.spark;i++){
+      const a = Math.random()*Math.PI*2, r = 25 + Math.random()*20;
+      sparks += `<span class="spark" style="left:${50+Math.cos(a)*r}%;top:${50+Math.sin(a)*r}%;animation-delay:${(Math.random()*2.6).toFixed(2)}s"></span>`;
+    }
+  }
+  return `<div class="tok"></div><div class="${gcls}">${ring}<div class="inner"></div><div class="label">${label}</div></div>${sparks}<div class="glare"></div>`;
+}
+
+function buildCoin(coin, t, n){
+  setVars(coin, t);
+  const s = parseFloat(getComputedStyle(coin).getPropertyValue('--s')) || coin.offsetWidth;
+  const th = parseFloat(getComputedStyle(coin).getPropertyValue('--t')) || 20;
+  const N = 72, R = s/2 - 0.6, h = (2*Math.PI*R/N) + 1.2;
+  let edge = '';
+  for (let i=0;i<N;i++){
+    const ang = i*360/N;
+    const light = Math.cos((ang - 300) * Math.PI/180);           // light from upper-left
+    const dark = (0.42 - light*0.32).toFixed(3);
+    const c = i%2 ? 'var(--c2)' : 'var(--c1)';
+    edge += `<i class="seg" style="width:${th}px;height:${h}px;margin:${-h/2}px 0 0 ${-th/2}px;
+      transform:rotateZ(${ang}deg) translateX(${R}px) rotateY(90deg);
+      background:linear-gradient(rgba(0,0,0,${dark}),rgba(0,0,0,${dark})),
+      linear-gradient(90deg,var(--c4),${c} 30%,var(--c3) 50%,${c} 70%,var(--c4))"></i>`;
+  }
+  coin.innerHTML = edge + `<div class="face front">${faceHTML(t,n,'front')}</div><div class="face back">${faceHTML(t,n,'back')}</div>`;
+}
+
+/* ---------- spin physics ---------- */
+function spinner(stage, coin, opts={}){
+  let rx = -10, ry = opts.startRy ?? -25, vx = 0, vy = opts.vy ?? 0;
+  let dragging = false, lx = 0, ly = 0, lt = 0, idle = performance.now(), lastTap = 0, target = null;
+  const apply = () => {
+    coin.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    const a = ((ry % 360) + 540) % 360 - 180;                 // -180..180
+    const f = a > 90 || a < -90 ? (a > 0 ? a - 180 : a + 180) : a;
+    coin.style.setProperty('--gp', `${50 + f/90*55 + rx*0.4}%`);
+    coin.style.setProperty('--rr', `${ry*1.2 + rx*2}deg`);
+  };
+  stage.addEventListener('pointerdown', e => {
+    dragging = true; target = null; lx = e.clientX; ly = e.clientY; lt = performance.now(); vx = vy = 0;
+    stage.setPointerCapture?.(e.pointerId);
+    const now = performance.now();
+    if (now - lastTap < 300) { target = Math.round((ry + 180) / 180) * 180; }
+    lastTap = now;
+    opts.onTouch?.();
+  });
+  stage.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const now = performance.now(), dt = Math.max(8, now - lt);
+    const dx = e.clientX - lx, dy = e.clientY - ly;
+    ry += dx * 0.55; rx = Math.max(-75, Math.min(75, rx - dy * 0.45));
+    vy = dx * 0.55 / dt * 16; vx = -dy * 0.45 / dt * 16;
+    lx = e.clientX; ly = e.clientY; lt = now; idle = now; if (Math.abs(dx)+Math.abs(dy) > 3) target = null;
+  });
+  const up = () => { dragging = false; idle = performance.now(); };
+  stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
+  const tick = () => {
+    if (!dragging) {
+      if (target !== null) { ry += (target - ry) * 0.12; vy = 0; if (Math.abs(target-ry) < 0.2) { ry = target; target = null; } }
+      else {
+        ry += vy; rx += vx; vy *= 0.955; vx *= 0.9;
+        rx = Math.max(-75, Math.min(75, rx));
+        const quiet = performance.now() - idle > 2500;
+        if (quiet) { rx += (-10 - rx) * 0.02; if (Math.abs(vy) < 0.35) vy += ((opts.auto ?? 0.25) - vy) * 0.02; }
+      }
+    }
+    apply(); requestAnimationFrame(tick);
+  };
+  apply(); requestAnimationFrame(tick);
+  return { kick(v){ vy = v; } };
+}
+
+/* ---------- UI ---------- */
+let selected = null;   // index into TIERS or -1 for starter, null = current
+const currentIndex = d => { let i = -1; TIERS.forEach((t,k) => { if (d >= t.d) i = k; }); return i; };
+
+function sizeCoin(){
+  const s = Math.min(window.innerWidth - 80, 300, window.innerHeight * 0.42);
+  document.documentElement.style.setProperty('--s', Math.round(s) + 'px');
+  document.documentElement.style.setProperty('--t', Math.round(s * 0.075) + 'px');
+}
+
+function render(){
+  const d = daysNow(), ci = currentIndex(d);
+  const si = selected ?? ci;
+  const t = si < 0 ? STARTER : TIERS[si];
+  const n = si < 0 ? d : t.d;
+
+  $('days').textContent = d.toLocaleString('uk-UA');
+  $('daysWord').textContent = plural(d, DW);
+  $('since').innerHTML = `з ${fmt(parse(state.start))}`;
+  setVars(document.documentElement, ci < 0 ? STARTER : TIERS[ci]);
+  setVars($('stage'), t);
+  const key = si + ':' + n;
+  if ($('coin').dataset.key !== key) { buildCoin($('coin'), t, n); $('coin').dataset.key = key; }
+
+  $('tierTitle').textContent = t.name;
+  $('tierSub').textContent = si < 0 ? 'Ваш перший жетон — через ' + (30 - d) + ' ' + plural(30-d, DW) : `${t.sub} · ${t.d} ${plural(t.d,DW)}`;
+  $('tierPill').textContent = si < 0 ? 'В дорозі' : (si === ci ? 'Поточний' : 'Отримано');
+
+  const next = TIERS[ci + 1];
+  if (next) {
+    const from = ci < 0 ? 0 : TIERS[ci].d, pct = Math.min(100, (d - from) / (next.d - from) * 100);
+    $('prog').hidden = false;
+    $('barFill').style.width = pct.toFixed(1) + '%';
+    $('progL').textContent = `Далі: ${next.name}`;
+    const left = next.d - d;
+    $('progR').textContent = `ще ${left} ${plural(left, DW)}`;
+  } else {
+    $('prog').hidden = false; $('barFill').style.width = '100%';
+    $('progL').textContent = 'Усі жетони зібрано'; $('progR').textContent = '';
+  }
+
+  const g = $('grid');
+  if (g.dataset.key !== `${d}:${si}`) {
+    g.dataset.key = `${d}:${si}`;
+    g.innerHTML = '';
+    TIERS.forEach((tt, k) => {
+      const got = d >= tt.d;
+      const b = document.createElement('button');
+      b.className = 'mini' + (got ? '' : ' lock') + (k === si ? ' sel' : '');
+      b.setAttribute('aria-label', `${tt.name}, ${tt.d} ${plural(tt.d,DW)}${got?'':' — ще не отримано'}`);
+      const disc = document.createElement('div'); disc.className = 'disc'; setVars(disc, tt);
+      disc.innerHTML = faceHTML(tt, tt.d, 'front', true) + (got ? '' : '<div class="lockic">🔒</div>');
+      b.append(disc);
+      b.insertAdjacentHTML('beforeend', `<div class="mn">${tt.name}</div><div class="ms">${got ? tt.d + ' ' + plural(tt.d,DW) : 'через ' + (tt.d - d) + ' ' + plural(tt.d-d,DW)}</div>`);
+      b.onclick = () => {
+        if (!got) { b.animate([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:260}); return; }
+        selected = (k === ci) ? null : k; render(); spin.kick(14);
+        $('stage').scrollIntoView({behavior:'smooth', block:'center'});
+      };
+      g.append(b);
+    });
+  }
+
+  $('stBest').textContent = Math.max(state.best || 0, d);
+  $('stEarned').textContent = ci + 1;
+  $('stRel').textContent = (state.relapses || []).length;
+
+  // new token celebration
+  if (ci >= 0 && (state.seen ?? -1) < ci) {
+    state.seen = ci; save(state);
+    celebrate(TIERS[ci]);
+  }
+}
+
+/* ---------- celebration ---------- */
+let celSpin = null;
+function celebrate(t){
+  $('cel').classList.add('on');
+  setVars($('celStage'), t);
+  buildCoin($('celCoin'), t, t.d);
+  if (!celSpin) celSpin = spinner($('celStage'), $('celCoin'), {startRy: -720, vy: 0, auto: 0.6});
+  celSpin.kick(28);
+  $('celTitle').textContent = `Новий жетон: ${t.name}`;
+  $('celText').textContent = `${t.sub} — ${t.d} ${plural(t.d,DW)} чистоти. Ви заслужили кожен із них.`;
+  navigator.vibrate?.([30,60,30,60,80]);
+  const c = $('confetti'); c.innerHTML = '';
+  const cols = [t.rim[0], t.rim[1], t.rim[2], `rgb(${t.glow})`, '#ffffff'];
+  for (let i=0;i<70;i++){
+    const p = document.createElement('i');
+    p.style.left = Math.random()*100 + 'vw';
+    p.style.background = cols[i % cols.length];
+    p.style.animationDuration = (2.2 + Math.random()*2.4) + 's';
+    p.style.animationDelay = (Math.random()*0.6) + 's';
+    c.append(p);
+  }
+  setTimeout(() => c.innerHTML = '', 5500);
+}
+$('celOk').onclick = () => $('cel').classList.remove('on');
+
+/* ---------- onboarding ---------- */
+let onbVal = 0;
+function startOnboarding(){
+  $('onb').classList.add('on');
+  const inp = $('onbInput');
+  inp.oninput = () => {
+    const v = inp.value.trim();
+    const ok = /^\d{1,5}$/.test(v) && +v <= 36500;
+    $('onbErr').textContent = v && !ok ? 'Введіть ціле число від 0 до 36500' : '';
+    $('onbNext').disabled = !ok;
+  };
+  inp.onkeydown = e => { if (e.key === 'Enter' && !$('onbNext').disabled) $('onbNext').click(); };
+  $('onbNext').onclick = () => {
+    onbVal = parseInt(inp.value, 10);
+    const start = new Date(); start.setDate(start.getDate() - onbVal);
+    $('onbConfirmTitle').textContent = `${onbVal} ${plural(onbVal, DW)}`;
+    $('onbConfirmText').textContent = onbVal === 0
+      ? 'Відлік почнеться з сьогоднішнього дня.'
+      : `Ваш шлях почався ${fmt(start)}.`;
+    $('onbStep1').hidden = true; $('onbStep2').hidden = false;
+  };
+  $('onbBack').onclick = () => { $('onbStep2').hidden = true; $('onbStep1').hidden = false; inp.focus(); };
+  $('onbOk').onclick = () => {
+    if (load()) { location.reload(); return; }        // already set elsewhere — never overwrite
+    const start = new Date(); start.setDate(start.getDate() - onbVal);
+    const ci = currentIndex(onbVal);
+    state = { v:1, start: ymd(start), createdAt: new Date().toISOString(), initialDays: onbVal,
+              best: onbVal, relapses: [], seen: ci };
+    save(state);
+    $('onb').classList.remove('on');
+    boot();
+    if (ci >= 0) setTimeout(() => celebrate(TIERS[ci]), 400);
+  };
+  setTimeout(() => inp.focus(), 300);
+}
+
+/* ---------- relapse ---------- */
+$('relapseBtn').onclick = () => {
+  const d = daysNow();
+  $('relText').textContent = d > 0
+    ? `Поточна серія — ${d} ${plural(d, DW)}. Лічильник почнеться з нуля, але ваш досвід і найкращий результат залишаться з вами.`
+    : 'Лічильник почнеться з нуля від сьогодні.';
+  $('relStep1').hidden = false; $('relStep2').hidden = true;
+  $('rel').classList.add('on');
+};
+$('relCancel').onclick = () => $('rel').classList.remove('on');
+(() => {
+  const btn = $('holdBtn'), fill = $('holdFill'); let anim = null, timer = null;
+  const start = e => {
+    e.preventDefault();
+    anim = fill.animate([{width:'0%'},{width:'100%'}], {duration:1500, fill:'forwards', easing:'linear'});
+    timer = setTimeout(confirmRelapse, 1500);
+  };
+  const stop = () => { clearTimeout(timer); timer = null; if (anim) { anim.cancel(); anim = null; } };
+  btn.addEventListener('pointerdown', start);
+  ['pointerup','pointerleave','pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+})();
+function confirmRelapse(){
+  const d = daysNow();
+  state.best = Math.max(state.best || 0, d);
+  state.relapses = state.relapses || [];
+  state.relapses.push({ date: ymd(new Date()), streak: d });
+  state.start = ymd(new Date());
+  state.seen = -1;
+  save(state);
+  navigator.vibrate?.(60);
+  selected = null;
+  $('relAfter').textContent = `Рецидив — це не кінець шляху, а частина його. Найдовша серія — ${state.best} ${plural(state.best, DW)} — назавжди ваша. Новий відлік почався сьогодні.`;
+  $('relStep1').hidden = true; $('relStep2').hidden = false;
+  render();
+}
+$('relDone').onclick = () => $('rel').classList.remove('on');
+
+/* ---------- boot ---------- */
+let spin = null;
+function boot(){
+  $('app').hidden = false;
+  sizeCoin();
+  render();
+  if (!spin) spin = spinner($('stage'), $('coin'), { onTouch(){ $('hint').style.opacity = 0; } });
+}
+window.addEventListener('resize', () => { if (!state) return; sizeCoin(); $('coin').dataset.key=''; render(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state) render(); });
+setInterval(() => { if (state) render(); }, 60_000);
+
+if (state && state.start) boot(); else startOnboarding();
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+})();
+</script>
+</body>
+</html>
